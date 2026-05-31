@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import { Certificate } from '@/lib/db'
+import type { Certificate } from '@/lib/db'
 import CertificateView from '@/components/CertificateView'
 import { format } from 'date-fns'
 import Link from 'next/link'

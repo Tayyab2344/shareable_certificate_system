@@ -1,5 +1,5 @@
 import React from 'react'
-import { Certificate } from '@/lib/db'
+import type { Certificate } from '@/lib/db'
 import { format } from 'date-fns'
 import { CrestClassic, CrestModern, CrestElegant, CrestTech } from '@/components/Icons'
 

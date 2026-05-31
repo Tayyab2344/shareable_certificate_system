@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
-import { Certificate, CertTemplate } from '@/lib/db'
+import type { Certificate, CertTemplate } from '@/lib/db'
 import CertificateView from '@/components/CertificateView'
 import { format } from 'date-fns'
 import {
