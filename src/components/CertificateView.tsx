@@ -59,9 +59,63 @@ const TEMPLATES = {
     patternSize: '16px 16px',
     frameStyle: { border: '1px solid rgba(16,185,129,0.4)', borderRadius: '0px' },
   },
+  custom: {
+    bg: '#0a0d14',
+    border: '#4B5563',
+    accent: '#3B82F6',
+    titleColor: '#F3F4F6',
+    textColor: '#F3F4F6',
+    subColor: '#9CA3AF',
+    sealBg: 'rgba(255,255,255,0.05)',
+    crestComponent: CrestModern,
+    pattern: 'none',
+    frameStyle: { border: 'none', borderRadius: '16px' },
+  },
 }
 
 export default function CertificateView({ cert, forPrint = false }: Props) {
+  if (cert.template === 'custom') {
+    return (
+      <div
+        id={forPrint ? 'certificate-print' : 'certificate-view'}
+        style={{
+          width: '100%',
+          maxWidth: '840px',
+          margin: '0 auto',
+          aspectRatio: '1.414 / 1',
+          background: '#0a0d14',
+          borderRadius: forPrint ? 0 : '16px',
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: forPrint ? 'none' : '0 25px 70px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {cert.certificateImageUrl ? (
+          <img
+            src={cert.certificateImageUrl}
+            alt="Custom Certificate"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              zIndex: 1,
+            }}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', color: '#94a3b8', zIndex: 1, padding: '20px', fontFamily: "'Outfit', sans-serif" }}>
+            <div style={{ fontSize: '36px', marginBottom: '10px' }}>🖼️</div>
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Custom Certificate Layout</div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Please upload your certificate design file</div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const t = TEMPLATES[cert.template] || TEMPLATES.classic
   const issuedFormatted = (() => {
     try {

@@ -1,6 +1,6 @@
 import { Pool } from 'pg'
 
-export type CertTemplate = 'classic' | 'modern' | 'elegant' | 'tech'
+export type CertTemplate = 'classic' | 'modern' | 'elegant' | 'tech' | 'custom'
 
 export interface Certificate {
   id: string
@@ -20,6 +20,7 @@ export interface Certificate {
   logoUrl?: string
   signatureUrl?: string
   primaryColor?: string
+  certificateImageUrl?: string
 }
 
 const pool = new Pool({
@@ -54,8 +55,13 @@ async function initDb(): Promise<void> {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         logo_url TEXT,
         signature_url TEXT,
-        primary_color VARCHAR(50)
+        primary_color VARCHAR(50),
+        certificate_image_url TEXT
       );
+    `)
+    // Ensure column exists for already existing tables
+    await pool.query(`
+      ALTER TABLE certificates ADD COLUMN IF NOT EXISTS certificate_image_url TEXT;
     `)
     isInitialized = true
   } catch (error) {
@@ -82,6 +88,7 @@ function mapRowToCert(row: any): Certificate {
     logoUrl: row.logo_url || undefined,
     signatureUrl: row.signature_url || undefined,
     primaryColor: row.primary_color || undefined,
+    certificateImageUrl: row.certificate_image_url || undefined,
   }
 }
 
@@ -103,8 +110,9 @@ export async function saveCert(cert: Certificate): Promise<void> {
       INSERT INTO certificates (
         id, recipient_name, recipient_email, course_name, description, 
         issuer_name, issuer_title, org_name, issued_date, expiry_date, 
-        template, skills, grade, logo_url, signature_url, primary_color
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        template, skills, grade, logo_url, signature_url, primary_color,
+        certificate_image_url
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       ON CONFLICT (id) DO UPDATE SET
         recipient_name = EXCLUDED.recipient_name,
         recipient_email = EXCLUDED.recipient_email,
@@ -120,7 +128,8 @@ export async function saveCert(cert: Certificate): Promise<void> {
         grade = EXCLUDED.grade,
         logo_url = EXCLUDED.logo_url,
         signature_url = EXCLUDED.signature_url,
-        primary_color = EXCLUDED.primary_color
+        primary_color = EXCLUDED.primary_color,
+        certificate_image_url = EXCLUDED.certificate_image_url
     `
     await pool.query(query, [
       cert.id,
@@ -139,6 +148,7 @@ export async function saveCert(cert: Certificate): Promise<void> {
       cert.logoUrl || null,
       cert.signatureUrl || null,
       cert.primaryColor || null,
+      cert.certificateImageUrl || null,
     ])
   } catch (error) {
     console.error(`Error saving certificate ${cert.id}:`, error)

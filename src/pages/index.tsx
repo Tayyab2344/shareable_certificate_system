@@ -35,6 +35,7 @@ const TEMPLATE_OPTIONS: { id: CertTemplate; label: string; desc: string; accent:
   { id: 'modern', label: 'Modern Corporate', desc: 'Minimalist Slate & Tech Indigo', accent: '#3B82F6' },
   { id: 'elegant', label: 'Elegant Academic', desc: 'Ivory Parchment & Rosewood Sepia', accent: '#8B5E3C' },
   { id: 'tech', label: 'Developer / Cyber', desc: 'Dark Matrix Grid & Neon Terminal', accent: '#10B981' },
+  { id: 'custom', label: 'Custom Upload', desc: 'Upload pre-designed PNG/JPG design', accent: '#EC4899' },
 ]
 
 export default function Home() {
@@ -65,6 +66,7 @@ export default function Home() {
     logoUrl: '',
     signatureUrl: '',
     primaryColor: '',
+    certificateImageUrl: '',
   })
 
   // Load certificates from Server API on mount
@@ -88,6 +90,37 @@ export default function Home() {
   }
 
   const setField = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const [uploading, setUploading] = useState(false)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: reader.result }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setField('certificateImageUrl', data.url)
+          showToast('Certificate layout template uploaded successfully!')
+        } else {
+          const err = await res.json()
+          showToast(`Upload failed: ${err.error || 'Unknown error'}`)
+        }
+      } catch (error) {
+        console.error(error)
+        showToast('Failed to connect to upload serverless API.')
+      }
+      setUploading(false)
+    }
+    reader.readAsDataURL(file)
+  }
 
   // Compute Live Preview Cert
   const previewCert: Certificate = {
@@ -108,6 +141,7 @@ export default function Home() {
     logoUrl: form.logoUrl || undefined,
     signatureUrl: form.signatureUrl || undefined,
     primaryColor: form.primaryColor || undefined,
+    certificateImageUrl: form.certificateImageUrl || undefined,
   }
 
   // Handle single certificate issuance via server API
@@ -199,6 +233,7 @@ export default function Home() {
         logoUrl: form.logoUrl || undefined,
         signatureUrl: form.signatureUrl || undefined,
         primaryColor: form.primaryColor || undefined,
+        certificateImageUrl: form.certificateImageUrl || undefined,
       })
     }
 
@@ -472,77 +507,150 @@ export default function Home() {
                   </div>
                 </FormCard>
 
-                {/* Custom Branding & Assets */}
-                <FormCard title="4. Advanced Branding & Signatures (Optional)">
-                  <div className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        label="Custom Logo Image URL"
-                        value={form.logoUrl}
-                        onChange={v => setField('logoUrl', v)}
-                        placeholder="https://domain.com/logo.png"
-                      />
-                      <FormField
-                        label="Custom Signature Image URL"
-                        value={form.signatureUrl}
-                        onChange={v => setField('signatureUrl', v)}
-                        placeholder="https://domain.com/sig.png"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        label="Issuer / Signatory Name"
-                        value={form.issuerName}
-                        onChange={v => setField('issuerName', v)}
-                        placeholder="Dr. Sarah Jenkins"
-                      />
-                      <FormField
-                        label="Issuer Title"
-                        value={form.issuerTitle}
-                        onChange={v => setField('issuerTitle', v)}
-                        placeholder="Dean of Computing Science"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        label="Issue Date"
-                        value={form.issuedDate}
-                        onChange={v => setField('issuedDate', v)}
-                        type="date"
-                        icon={IconCalendar}
-                      />
-                      <FormField
-                        label="Expiration Date"
-                        value={form.expiryDate}
-                        onChange={v => setField('expiryDate', v)}
-                        type="date"
-                        icon={IconCalendar}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Custom Theme Primary Color</label>
-                      <div className="flex gap-3 items-center">
+                {/* Custom Branding or Custom Upload File Card */}
+                {form.template === 'custom' ? (
+                  <FormCard title="4. Upload Custom Certificate Design">
+                    <div className="flex flex-col gap-4">
+                      <div className="border-2 border-dashed border-gray-800 hover:border-blue-500/50 rounded-xl p-8 text-center bg-gray-950/40 transition-all relative">
                         <input
-                          type="color"
-                          value={form.primaryColor || TEMPLATE_OPTIONS.find(o => o.id === form.template)?.accent || '#3B82F6'}
-                          onChange={e => setField('primaryColor', e.target.value)}
-                          className="w-10 h-10 border border-gray-800 rounded bg-transparent cursor-pointer"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          disabled={uploading}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <span className="text-xs text-gray-400 font-mono">
-                          {form.primaryColor || 'Using template defaults'}
-                        </span>
-                        {form.primaryColor && (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center">
+                            <IconDownload size={18} className="transform rotate-180" />
+                          </div>
+                          {uploading ? (
+                            <div>
+                              <div className="text-xs font-bold text-white mb-1">Uploading Design to Cloudinary...</div>
+                              <div className="text-[10px] text-gray-500 font-mono">Syncing asset with secure CDN</div>
+                            </div>
+                          ) : (
+                            <div>
+                              <div className="text-xs font-bold text-gray-300 hover:text-white transition-colors mb-1">
+                                Click or drag custom certificate design here
+                              </div>
+                              <div className="text-[10px] text-gray-500 font-mono">PNG, JPG or WEBP up to 10MB</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {form.certificateImageUrl && (
+                        <div className="bg-gray-950/80 p-3 border border-gray-800 rounded-lg flex items-center gap-3">
+                          <img
+                            src={form.certificateImageUrl}
+                            alt="Preview thumbnail"
+                            className="w-16 h-12 object-contain bg-black border border-gray-800 rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-white truncate font-sans">Certificate Layout Saved</div>
+                            <div className="text-[9px] text-gray-500 font-mono truncate">{form.certificateImageUrl}</div>
+                          </div>
                           <button
-                            onClick={() => setField('primaryColor', '')}
-                            className="text-[10px] font-bold text-red-400 hover:text-red-300 ml-auto"
+                            type="button"
+                            onClick={() => setField('certificateImageUrl', '')}
+                            className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors"
                           >
-                            Reset to Default
+                            Remove
                           </button>
-                        )}
+                        </div>
+                      )}
+
+                      {/* Date details */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        <FormField
+                          label="Issue Date"
+                          value={form.issuedDate}
+                          onChange={v => setField('issuedDate', v)}
+                          type="date"
+                          icon={IconCalendar}
+                        />
+                        <FormField
+                          label="Expiration Date"
+                          value={form.expiryDate}
+                          onChange={v => setField('expiryDate', v)}
+                          type="date"
+                          icon={IconCalendar}
+                        />
                       </div>
                     </div>
-                  </div>
-                </FormCard>
+                  </FormCard>
+                ) : (
+                  <FormCard title="4. Advanced Branding & Signatures (Optional)">
+                    <div className="flex flex-col gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          label="Custom Logo Image URL"
+                          value={form.logoUrl}
+                          onChange={v => setField('logoUrl', v)}
+                          placeholder="https://domain.com/logo.png"
+                        />
+                        <FormField
+                          label="Custom Signature Image URL"
+                          value={form.signatureUrl}
+                          onChange={v => setField('signatureUrl', v)}
+                          placeholder="https://domain.com/sig.png"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          label="Issuer / Signatory Name"
+                          value={form.issuerName}
+                          onChange={v => setField('issuerName', v)}
+                          placeholder="Dr. Sarah Jenkins"
+                        />
+                        <FormField
+                          label="Issuer Title"
+                          value={form.issuerTitle}
+                          onChange={v => setField('issuerTitle', v)}
+                          placeholder="Dean of Computing Science"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          label="Issue Date"
+                          value={form.issuedDate}
+                          onChange={v => setField('issuedDate', v)}
+                          type="date"
+                          icon={IconCalendar}
+                        />
+                        <FormField
+                          label="Expiration Date"
+                          value={form.expiryDate}
+                          onChange={v => setField('expiryDate', v)}
+                          type="date"
+                          icon={IconCalendar}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Custom Theme Primary Color</label>
+                        <div className="flex gap-3 items-center">
+                          <input
+                            type="color"
+                            value={form.primaryColor || TEMPLATE_OPTIONS.find(o => o.id === form.template)?.accent || '#3B82F6'}
+                            onChange={e => setField('primaryColor', e.target.value)}
+                            className="w-10 h-10 border border-gray-800 rounded bg-transparent cursor-pointer"
+                          />
+                          <span className="text-xs text-gray-400 font-mono">
+                            {form.primaryColor || 'Using template defaults'}
+                          </span>
+                          {form.primaryColor && (
+                            <button
+                              onClick={() => setField('primaryColor', '')}
+                              className="text-[10px] font-bold text-red-400 hover:text-red-300 ml-auto"
+                            >
+                              Reset to Default
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </FormCard>
+                )}
 
                 {/* Operations buttons */}
                 <div className="flex gap-4">
