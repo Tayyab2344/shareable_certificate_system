@@ -1,5 +1,4 @@
-import fs from 'fs'
-import path from 'path'
+import { Pool } from 'pg'
 
 export type CertTemplate = 'classic' | 'modern' | 'elegant' | 'tech'
 
@@ -23,101 +22,230 @@ export interface Certificate {
   primaryColor?: string
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const DB_FILE = path.join(DATA_DIR, 'certificates.json')
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+})
 
-function initDb(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true })
-  }
+let isInitialized = false
+
+async function initDb(): Promise<void> {
+  if (isInitialized) return
   
-  if (!fs.existsSync(DB_FILE)) {
-    const defaults: Certificate[] = [
-      {
-        id: 'CP-DEMO0001',
-        recipientName: 'Fatima Al-Hassan',
-        recipientEmail: 'fatima@example.com',
-        courseName: 'Advanced Data Science & Machine Learning',
-        description: 'Successfully completed 120 hours of intensive training covering Python, statistical modeling, neural networks, and real-world ML deployment.',
-        issuerName: 'Dr. Omar Siddiqui',
-        issuerTitle: 'Director of Training',
-        orgName: 'TechLearn Institute',
-        issuedDate: '2026-05-01',
-        template: 'classic',
-        skills: ['Python', 'TensorFlow', 'Data Analysis'],
-        grade: 'Distinction',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'CP-DEMO0002',
-        recipientName: 'Usman Tariq',
-        recipientEmail: 'usman@example.com',
-        courseName: 'Project Management Professional',
-        description: 'Completed comprehensive PMP training covering Agile, Scrum, risk management, and stakeholder communication.',
-        issuerName: 'Sarah Mitchell',
-        issuerTitle: 'Head of Programs',
-        orgName: 'TechLearn Institute',
-        issuedDate: '2026-05-15',
-        template: 'modern',
-        skills: ['Agile', 'Scrum', 'Risk Management'],
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'CP-DEMO0003',
-        recipientName: 'Zara Ahmed',
-        recipientEmail: 'zara@example.com',
-        courseName: 'UI/UX Design Fundamentals',
-        description: 'Mastered user research, wireframing, prototyping with Figma, and usability testing methodologies.',
-        issuerName: 'Dr. Omar Siddiqui',
-        issuerTitle: 'Director of Training',
-        orgName: 'TechLearn Institute',
-        issuedDate: '2026-05-20',
-        template: 'elegant',
-        skills: ['Figma', 'User Research', 'Prototyping'],
-        grade: 'Merit',
-        createdAt: new Date().toISOString(),
-      },
-    ]
-    fs.writeFileSync(DB_FILE, JSON.stringify(defaults, null, 2), 'utf-8')
+  try {
+    // 1. Create table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS certificates (
+        id VARCHAR(50) PRIMARY KEY,
+        recipient_name VARCHAR(255) NOT NULL,
+        recipient_email VARCHAR(255),
+        course_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        issuer_name VARCHAR(255),
+        issuer_title VARCHAR(255),
+        org_name VARCHAR(255) NOT NULL,
+        issued_date VARCHAR(50) NOT NULL,
+        expiry_date VARCHAR(50),
+        template VARCHAR(50) NOT NULL,
+        skills TEXT[],
+        grade VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        logo_url TEXT,
+        signature_url TEXT,
+        primary_color VARCHAR(50)
+      );
+    `)
+
+    // 2. Check if seeding is needed
+    const countRes = await pool.query('SELECT COUNT(*) FROM certificates')
+    const count = parseInt(countRes.rows[0].count, 10)
+    
+    if (count === 0) {
+      console.log('Seeding default certificates into PostgreSQL database...')
+      const defaults: Certificate[] = [
+        {
+          id: 'CP-DEMO0001',
+          recipientName: 'Fatima Al-Hassan',
+          recipientEmail: 'fatima@example.com',
+          courseName: 'Advanced Data Science & Machine Learning',
+          description: 'Successfully completed 120 hours of intensive training covering Python, statistical modeling, neural networks, and real-world ML deployment.',
+          issuerName: 'Dr. Omar Siddiqui',
+          issuerTitle: 'Director of Training',
+          orgName: 'TechLearn Institute',
+          issuedDate: '2026-05-01',
+          template: 'classic',
+          skills: ['Python', 'TensorFlow', 'Data Analysis'],
+          grade: 'Distinction',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'CP-DEMO0002',
+          recipientName: 'Usman Tariq',
+          recipientEmail: 'usman@example.com',
+          courseName: 'Project Management Professional',
+          description: 'Completed comprehensive PMP training covering Agile, Scrum, risk management, and stakeholder communication.',
+          issuerName: 'Sarah Mitchell',
+          issuerTitle: 'Head of Programs',
+          orgName: 'TechLearn Institute',
+          issuedDate: '2026-05-15',
+          template: 'modern',
+          skills: ['Agile', 'Scrum', 'Risk Management'],
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: 'CP-DEMO0003',
+          recipientName: 'Zara Ahmed',
+          recipientEmail: 'zara@example.com',
+          courseName: 'UI/UX Design Fundamentals',
+          description: 'Mastered user research, wireframing, prototyping with Figma, and usability testing methodologies.',
+          issuerName: 'Dr. Omar Siddiqui',
+          issuerTitle: 'Director of Training',
+          orgName: 'TechLearn Institute',
+          issuedDate: '2026-05-20',
+          template: 'elegant',
+          skills: ['Figma', 'User Research', 'Prototyping'],
+          grade: 'Merit',
+          createdAt: new Date().toISOString(),
+        },
+      ]
+
+      for (const cert of defaults) {
+        await pool.query(`
+          INSERT INTO certificates (
+            id, recipient_name, recipient_email, course_name, description, 
+            issuer_name, issuer_title, org_name, issued_date, template, 
+            skills, grade, logo_url, signature_url, primary_color
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        `, [
+          cert.id,
+          cert.recipientName,
+          cert.recipientEmail,
+          cert.courseName,
+          cert.description,
+          cert.issuerName,
+          cert.issuerTitle,
+          cert.orgName,
+          cert.issuedDate,
+          cert.template,
+          cert.skills || [],
+          cert.grade,
+          cert.logoUrl || null,
+          cert.signatureUrl || null,
+          cert.primaryColor || null,
+        ])
+      }
+    }
+    isInitialized = true
+  } catch (error) {
+    console.error('Failed to initialize database:', error)
   }
 }
 
-export function getAllCerts(): Certificate[] {
-  initDb()
+function mapRowToCert(row: any): Certificate {
+  return {
+    id: row.id,
+    recipientName: row.recipient_name,
+    recipientEmail: row.recipient_email || '',
+    courseName: row.course_name,
+    description: row.description || '',
+    issuerName: row.issuer_name || '',
+    issuerTitle: row.issuer_title || '',
+    orgName: row.org_name,
+    issuedDate: row.issued_date,
+    expiryDate: row.expiry_date || undefined,
+    template: row.template as CertTemplate,
+    skills: row.skills || [],
+    grade: row.grade || undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    logoUrl: row.logo_url || undefined,
+    signatureUrl: row.signature_url || undefined,
+    primaryColor: row.primary_color || undefined,
+  }
+}
+
+export async function getAllCerts(): Promise<Certificate[]> {
+  await initDb()
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf-8')
-    return JSON.parse(raw)
+    const res = await pool.query('SELECT * FROM certificates ORDER BY created_at DESC')
+    return res.rows.map(mapRowToCert)
   } catch (error) {
-    console.error('Failed to read certificates db:', error)
+    console.error('Error fetching all certificates:', error)
     return []
   }
 }
 
-export function saveCert(cert: Certificate): void {
-  initDb()
-  const all = getAllCerts()
-  
-  // Prevent duplicate IDs
-  const index = all.findIndex(c => c.id === cert.id)
-  if (index !== -1) {
-    all[index] = cert
-  } else {
-    all.unshift(cert)
+export async function saveCert(cert: Certificate): Promise<void> {
+  await initDb()
+  try {
+    const query = `
+      INSERT INTO certificates (
+        id, recipient_name, recipient_email, course_name, description, 
+        issuer_name, issuer_title, org_name, issued_date, expiry_date, 
+        template, skills, grade, logo_url, signature_url, primary_color
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      ON CONFLICT (id) DO UPDATE SET
+        recipient_name = EXCLUDED.recipient_name,
+        recipient_email = EXCLUDED.recipient_email,
+        course_name = EXCLUDED.course_name,
+        description = EXCLUDED.description,
+        issuer_name = EXCLUDED.issuer_name,
+        issuer_title = EXCLUDED.issuer_title,
+        org_name = EXCLUDED.org_name,
+        issued_date = EXCLUDED.issued_date,
+        expiry_date = EXCLUDED.expiry_date,
+        template = EXCLUDED.template,
+        skills = EXCLUDED.skills,
+        grade = EXCLUDED.grade,
+        logo_url = EXCLUDED.logo_url,
+        signature_url = EXCLUDED.signature_url,
+        primary_color = EXCLUDED.primary_color
+    `
+    await pool.query(query, [
+      cert.id,
+      cert.recipientName,
+      cert.recipientEmail || null,
+      cert.courseName,
+      cert.description,
+      cert.issuerName || null,
+      cert.issuerTitle || null,
+      cert.orgName,
+      cert.issuedDate,
+      cert.expiryDate || null,
+      cert.template,
+      cert.skills || [],
+      cert.grade || null,
+      cert.logoUrl || null,
+      cert.signatureUrl || null,
+      cert.primaryColor || null,
+    ])
+  } catch (error) {
+    console.error(`Error saving certificate ${cert.id}:`, error)
+    throw error
   }
-  
-  fs.writeFileSync(DB_FILE, JSON.stringify(all, null, 2), 'utf-8')
 }
 
-export function getCertById(id: string): Certificate | null {
-  initDb()
-  const all = getAllCerts()
-  return all.find(c => c.id.toUpperCase() === id.toUpperCase()) || null
+export async function getCertById(id: string): Promise<Certificate | null> {
+  await initDb()
+  try {
+    const res = await pool.query('SELECT * FROM certificates WHERE UPPER(id) = $1', [id.toUpperCase()])
+    if (res.rows.length === 0) return null
+    return mapRowToCert(res.rows[0])
+  } catch (error) {
+    console.error(`Error fetching certificate by ID ${id}:`, error)
+    return null
+  }
 }
 
-export function deleteCert(id: string): void {
-  initDb()
-  const all = getAllCerts().filter(c => c.id.toUpperCase() !== id.toUpperCase())
-  fs.writeFileSync(DB_FILE, JSON.stringify(all, null, 2), 'utf-8')
+export async function deleteCert(id: string): Promise<void> {
+  await initDb()
+  try {
+    await pool.query('DELETE FROM certificates WHERE UPPER(id) = $1', [id.toUpperCase()])
+  } catch (error) {
+    console.error(`Error deleting certificate ${id}:`, error)
+    throw error
+  }
 }
 
 export function generateId(): string {
