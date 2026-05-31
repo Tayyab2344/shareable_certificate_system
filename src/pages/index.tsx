@@ -313,7 +313,20 @@ export default function Home() {
     link.setAttribute('download', `certifypro_issued_${new Date().toISOString().split('T')[0]}.csv`)
     document.body.appendChild(link)
     link.click()
-    document.body.removeChild(link)
+  }
+
+  async function handleLogout() {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' })
+      if (res.ok) {
+        window.location.href = '/login'
+      } else {
+        showToast('Logout failed.')
+      }
+    } catch (e) {
+      console.error(e)
+      showToast('Network error on logout.')
+    }
   }
 
   const filtered = certs.filter(c =>
@@ -379,6 +392,12 @@ export default function Home() {
               <IconSearch size={14} />
               Verify Link
             </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-950/20 border border-red-900/30 hover:border-red-700 hover:bg-red-900/20 rounded-lg text-xs font-semibold text-red-400 hover:text-red-300 transition-all"
+            >
+              Logout
+            </button>
           </div>
         </header>
 
