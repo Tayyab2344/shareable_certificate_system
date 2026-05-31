@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyToken } from './lib/auth'
+import { verifyTokenEdge } from './lib/auth.edge'
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -22,7 +22,7 @@ export async function middleware(req: NextRequest) {
 
   // 2. Read admin_session cookie
   const sessionToken = req.cookies.get('admin_session')?.value
-  const isAuthenticated = await verifyToken(sessionToken)
+  const isAuthenticated = await verifyTokenEdge(sessionToken)
 
   if (!isAuthenticated) {
     // If API route, return 401 JSON response

@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const sessionToken = await getExpectedSessionToken()
+    const sessionToken = getExpectedSessionToken()
     
     // Set secure HttpOnly cookie (expires in 24 hours)
     const isProd = process.env.NODE_ENV === 'production'
